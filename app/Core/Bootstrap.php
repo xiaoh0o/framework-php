@@ -4,8 +4,7 @@ namespace App\Core;
 use App\Core\Container;
 use App\Exception\ConsoleHandler;
 use App\Exception\DefaultHandler;
-use Xiaoh0o\Route\Router;
-use Xiaoh0o\Utils\Configure;
+use App\Core\Route\Router;
 
 /**
  * 引导程序
@@ -18,6 +17,15 @@ class Bootstrap
     }
 
     public function run()
+    {
+        if (PHP_SAPI == "cli") {
+            $this->cli();
+        } else {
+            $this->web();
+        }
+    }
+
+    protected function web()
     {
         session_start();
 
@@ -34,7 +42,7 @@ class Bootstrap
         try {
             echo $router->run();
         } catch (\Throwable $e) {
-            $handler = $routeConfig['exceptionHandler'] ?? "";
+            $handler = $routeConfig['exception'] ?? "";
             if (empty($handler)) {
                 $handler = DefaultHandler::class;
             }
@@ -47,7 +55,7 @@ class Bootstrap
      *
      * 命令：php console.php {$controller}@{$action} ...
      */
-    public function cli()
+    protected function cli()
     {
         try {
             $route = $GLOBALS['argv'][1] ?? [];
