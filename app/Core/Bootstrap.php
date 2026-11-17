@@ -2,6 +2,7 @@
 namespace App\Core;
 
 use App\Core\Container;
+use App\Core\Http\Response;
 use App\Exception\ConsoleHandler;
 use App\Exception\DefaultHandler;
 use App\Core\Route\Router;
@@ -38,9 +39,13 @@ class Bootstrap
         $this->app->addShared("router", $router);
         $this->app->addShared(Router::class, $router);
 
+        $response = new Response();
+        $this->app->addShared("response", $response);
+        $this->app->addShared(Response::class, $response);
+
         // 发送结果
         try {
-            echo $router->run();
+            $response->emit($router->run());
         } catch (\Throwable $e) {
             $handler = $routeConfig['exception'] ?? "";
             if (empty($handler)) {

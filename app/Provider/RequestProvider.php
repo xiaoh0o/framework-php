@@ -2,8 +2,7 @@
 namespace App\Provider;
 
 use League\Container\ServiceProvider\AbstractServiceProvider;
-use Nette\Http\Request;
-use Nette\Http\RequestFactory;
+use App\Core\Http\Request;
 
 class RequestProvider extends AbstractServiceProvider
 {
@@ -18,7 +17,7 @@ class RequestProvider extends AbstractServiceProvider
 
     public function register(): void
     {
-        $request = (new RequestFactory())->fromGlobals();
+        $request = Request::createFromGlobals();
 
         $this->getContainer()->addShared(Request::class, $request);
         $this->getContainer()->addShared("request",      $request);

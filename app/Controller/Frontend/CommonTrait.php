@@ -1,9 +1,9 @@
 <?php
 namespace App\Controller\Frontend;
 
-use Nette\Http\Response;
 use Throwable;
-use Xiaoh0o\Utils\HttpException;
+use App\Core\HttpException;
+use App\Core\Http\Response;
 
 trait CommonTrait
 {
@@ -43,10 +43,9 @@ trait CommonTrait
             "message" => $message,
             "data"    => $data,
         ];
-        $httpResponse = new Response();
-        $httpResponse->setContentType("application/json", "utf-8");
 
-        // 重新设置返回值 Header
+        $httpResponse = app("response");
+        $httpResponse->setHeader("Content-type", "application/json; charset=utf-8");
         return json_encode($result, JSON_UNESCAPED_UNICODE);
     }
 }

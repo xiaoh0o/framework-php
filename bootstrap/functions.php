@@ -1,6 +1,6 @@
 <?php
 use App\Core\Container;
-use Nette\Http\Request;
+use App\Core\Http\Request;
 
 // 定义方法
 
