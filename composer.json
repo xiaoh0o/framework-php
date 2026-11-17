@@ -1,0 +1,16 @@
+{
+    "name": "xiaoh0o/framework-php",
+    "description": "自用PHP框架",
+    "license": "MIT",
+    "type": "project",
+    "require": {
+        "php": ">=8.3",
+        "league/container": "4.2.0",
+        "symfony/http-foundation": "v7.1.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    }
+}
