@@ -3,7 +3,6 @@ namespace App\Core;
 
 use League\Container\Container as LeagueContainer;
 use League\Container\ReflectionContainer;
-use App\Core\Configure;
 
 /**
  * 应用单例
@@ -16,6 +15,11 @@ class Container extends LeagueContainer
     {
         parent::__construct();
 
+        $this->run();
+    }
+
+    protected function run()
+    {
         // 开启自动注入
         $this->delegate(
             new ReflectionContainer()
@@ -24,17 +28,18 @@ class Container extends LeagueContainer
         $this->addShared("app", $this);
         $this->addShared(self::class, $this);
 
+        $providers = Configure::get("providers");
+        foreach ($providers as $provider) {
+            $this->addServiceProvider(new $provider());
+        }
+
         static::$instance = $this;
     }
 
     public static function instance(): Container
     {
         if (is_null(static::$instance)) {
-            $providers = Configure::get("providers");
-            $app = new self();
-            foreach ($providers as $provider) {
-                $app->addServiceProvider(new $provider());
-            }
+            new static();
         }
         return static::$instance;
     }
