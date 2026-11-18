@@ -9,6 +9,11 @@ class Configure
     protected static string $dir  = CONFIG_PATH; // 配置文件目录路径
     protected static array  $data = []; // 配置数据
 
+    public static function data()
+    {
+        return static::$data;
+    }
+
     // 获取配置项
     public static function get(string $name)
     {

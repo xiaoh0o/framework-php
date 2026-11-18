@@ -51,18 +51,12 @@ class Router
         $router = new RouteCollector();
 
         // 加载路由配置
-        foreach ($this->routes as $group => $items) {
-            $group = rtrim($group, "/");
-            if (str_starts_with($group, "/") == false) {
-                $group = "/{$group}";
-            }
-            foreach ($items as $item) {
-                $methods = (array)$item[0];
-                $path    = ltrim($item[1], "/");
-                $handler = $item[2];
-                foreach ($methods as $method) {
-                    $router->addRoute($method, "{$group}/{$path}", $handler);
-                }
+        foreach ($this->routes as $item) {
+            $methods = (array)$item[0];
+            $path    = $item[1];
+            $handler = $item[2];
+            foreach ($methods as $method) {
+                $router->addRoute($method, $path, $handler);
             }
         }
 
