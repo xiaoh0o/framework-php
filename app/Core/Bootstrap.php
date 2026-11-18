@@ -2,10 +2,11 @@
 namespace App\Core;
 
 use App\Core\Container;
+use App\Core\Http\Request;
 use App\Core\Http\Response;
+use App\Core\Route\Router;
 use App\Exception\ConsoleHandler;
 use App\Exception\DefaultHandler;
-use App\Core\Route\Router;
 
 /**
  * 引导程序
@@ -30,12 +31,15 @@ class Bootstrap
     {
         session_start();
 
+        $request = $this->app->get(Request::class);
+        $server = $request->server->all(); // 等效于$_SERVER
+
         // 路由
-        $routeConfig = $this->matchRouter();
+        $routeConfig = $this->matchRouter($server['HTTP_HOST']);
         $router = new Router($this->app);
         $router->setRoutes($routeConfig['routes']);
         $router->setAllowOrigins($routeConfig['allowOrigns']);
-        $router->setServerParams($_SERVER);
+        $router->setServerParams($server);
         $this->app->addShared("router", $router);
         $this->app->addShared(Router::class, $router);
 
@@ -94,13 +98,12 @@ class Bootstrap
         }
     }
 
-
-    // 匹配路由
-    protected function matchRouter()
+    // 匹配路由配置
+    protected function matchRouter(string $http_host)
     {
         $configs = Configure::get("router");
         foreach ($configs as $config) {
-            if (in_array($_SERVER["HTTP_HOST"], (array)$config['domains'])) {
+            if (in_array($http_host, (array)$config['domains'])) {
                 return $config;
             }
         }
