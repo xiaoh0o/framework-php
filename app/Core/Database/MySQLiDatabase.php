@@ -71,10 +71,11 @@ class MySQLiDatabase implements DatabaseInterface
         }
     }
 
-    private function assetKey(string $key): void
+    private function assertKey(string $key): void
     {
-        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/', $key)) {
-            throw new Exception("非法字段名: {$key}");
+        $count = preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/', $key);
+        if ($count == false) {
+            throw new Exception("where [key] error!");
         }
     }
 
@@ -244,12 +245,13 @@ class MySQLiDatabase implements DatabaseInterface
 
         $fields = [];
         foreach ($incrData as $key => $value) {
-            $this->assetKey($key);
+            $this->assertKey($key);
+            $fieldKey = str_contains($key, '.') ? $key : "`{$key}`";
             if (!is_numeric($value)) {
                 throw new Exception("自增字段，参数必须是数字类型！");
             }
             $value = abs($value);
-            $fields[] = "{$key} = {$key} + {$value}";
+            $fields[] = "{$fieldKey} = {$fieldKey} + {$value}";
         }
         $sql = implode(", ", $fields);
         if (!empty($updateData)) {
@@ -267,12 +269,14 @@ class MySQLiDatabase implements DatabaseInterface
 
         $fields = [];
         foreach ($decrData as $key => $value) {
-            $this->assetKey($key);
+            $this->assertKey($key);
+            $fieldKey = str_contains($key, '.') ? $key : "`{$key}`";
             if (!is_numeric($value)) {
                 throw new Exception("自减字段，参数必须是数字类型！");
             }
+
             $value = abs($value);
-            $fields[] = "{$key} = {$key} - {$value}";
+            $fields[] = "{$fieldKey} = {$fieldKey} - {$value}";
         }
         $sql = implode(", ", $fields);
         if (!empty($updateData)) {
@@ -413,6 +417,7 @@ class MySQLiDatabase implements DatabaseInterface
     {
         $parts = [];
         foreach ($array as $key => $value) {
+            $this->assertKey($key);
             $fieldKey = str_contains($key, '.') ? $key : "`{$key}`";
 
             if (is_null($value)) {
