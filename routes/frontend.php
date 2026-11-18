@@ -9,13 +9,9 @@ $routes = [
     ["GET", "/", [IndexController::class, "index"]]
 ];
 
-$routeMaps = [
-    "/" => $routes
-];
-
 return [
-    "routes"      => $routeMaps,
     "domains"     => ['study.com'],
     "exception"   => ExceptionHandler::class,
-    "allowOrigns" => []
+    "allowOrigns" => [],
+    "routes"      => $routes,
 ];
