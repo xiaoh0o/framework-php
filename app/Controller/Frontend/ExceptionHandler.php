@@ -12,9 +12,8 @@ class ExceptionHandler
 
     public function render(Throwable $e)
     {
-        $message  = $e->getMessage() ."<br />";
-        $message .= $e->getFile() ." Line:". $e->getLine();
+        $message = $e->getMessage();
 
-        return $this->json(false, $message, $e->getCode(), []);
+        return $this->echoResult(false, $message, $e->getCode(), []);
     }
 }

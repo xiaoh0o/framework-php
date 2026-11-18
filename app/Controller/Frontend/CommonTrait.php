@@ -15,7 +15,7 @@ trait CommonTrait
      */
     protected function success(array $data = [], string $message = "ok")
     {
-        return $this->json(true, $message, HttpException::OK, $data);
+        return $this->echoResult(true, $message, HttpException::OK, $data);
     }
 
     /**
@@ -23,7 +23,7 @@ trait CommonTrait
      */
     protected function failed(Throwable $e)
     {
-        return $this->json(false, $e->getMessage(), $e->getCode());
+        return $this->echoResult(false, $e->getMessage(), $e->getCode());
     }
 
     /**
@@ -35,17 +35,19 @@ trait CommonTrait
      * @param array $data 相关数据
      * @return string
      */
-    protected function json(bool $status, string $message = "", int $code = HttpException::OK, array $data = [])
+    protected function echoResult(bool $status, string $message = "", int $code = HttpException::OK, array $data = [])
     {
-        $result = [
+        $result = json_encode([
             "error"   => $status ? 0 : -1,
             "code"    => $code,
             "message" => $message,
             "data"    => $data,
+        ], JSON_UNESCAPED_UNICODE);
+
+        $headers = [
+            "Content-type" => "application/json; charset=utf-8"
         ];
 
-        $httpResponse = app("response");
-        $httpResponse->setHeader("Content-type", "application/json; charset=utf-8");
-        return json_encode($result, JSON_UNESCAPED_UNICODE);
+        return new Response($result, Response::HTTP_OK, $headers);
     }
 }
