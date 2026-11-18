@@ -3,13 +3,14 @@ namespace App\Core;
 
 use Exception;
 use ReflectionClass;
-use ReflectionNamedType;
 
 /**
  * 值对象模型，初始化后不可修改
  */
 abstract class ValueObject extends ObjectArrayAccess
 {
+    private static array $infoCache = [];
+
     // 数组方式返回
     final public function toArray(): array
     {
@@ -26,45 +27,24 @@ abstract class ValueObject extends ObjectArrayAccess
     }
 
     // 格式化返回
-    public function format()
+    public function format(): array
     {
         return $this->toArray();
-    }
-
-    // 批量格式化返回
-    public static function formats(array $models, bool $hasKey = true)
-    {
-        $data = [];
-        foreach ($models as $key => $model) {
-            $value = $model->format();
-            if ($hasKey) {
-                $data[$key] = $value;
-            } else {
-                $data[] = $value;
-            }
-        }
-        return $data;
-    }
-
-    // 属性的验证规则
-    protected static function rules()
-    {
-        return [];
     }
 
     /**
      * 用新数据替换 获取新的对象
      *
      * @param array $data 属性键值对
-     * @return object
+     * @return static
      */
-    public function with(array $data)
+    public function with(array $data): static
     {
         $properties = $this->toArray();
         if (!empty($data)) {
             // 使用新属性值替换
             foreach ($data as $key => $value) {
-                if (isset($properties[$key])) {
+                if (array_key_exists($key, $properties)) {
                     $properties[$key] = $value;
                 } else {
                     $class = get_called_class();
@@ -80,100 +60,142 @@ abstract class ValueObject extends ObjectArrayAccess
     // 获取模型属性名
     protected static function getPropertyNames()
     {
-        $class = get_called_class();
-        $reflectionClass = new ReflectionClass($class);
-
-        // 构造函数
-        $constructor = $reflectionClass->getConstructor();
-        if (is_null($constructor)) {
-            return [];
-        }
-
-        // 获取参数
-        $parameters = $constructor->getParameters();
-        if (empty($parameters)) {
-            return [];
-        }
-
-        // 获取属性名称
-        $propertyNames = [];
-        foreach($parameters AS $parameter) {
-            $name = $parameter->getName();
-            $propertyNames[] = $name;
-        }
-
-        return $propertyNames;
+        return array_keys(static::getPropertyInfos());
     }
 
     // 获取属性信息 [name => type|class]
     protected static function getPropertyInfos()
     {
         $class = get_called_class();
+        if (isset(self::$infoCache[$class])) {
+            return self::$infoCache[$class];
+        }
+
         $reflectionClass = new ReflectionClass($class);
 
         // 构造函数
         $constructor = $reflectionClass->getConstructor();
         if (is_null($constructor)) {
-            return [];
+            return self::$infoCache[$class] = [];
         }
 
         // 获取参数
         $parameters = $constructor->getParameters();
         if (empty($parameters)) {
-            return [];
+            return self::$infoCache[$class] = [];
         }
 
         // 获取属性名称和类型
         $result = [];
         foreach($parameters as $parameter) {
-            $name = $parameter->getName();
-            $type = $parameter->getType();
-
-            $typeName = "mixed";
-            if ($type instanceof ReflectionNamedType) {
-                $typeName = $type->getName();
+            // 不支持可变参数
+            if ($parameter->isVariadic()) {
+                throw new Exception("构造函数不支持使用可变参数！");
             }
-            $result[$name] = $typeName;
+
+            $name = $parameter->getName();
+
+            // 默认值
+            $hasDefaultValue = $parameter->isDefaultValueAvailable();
+            $defaultValue = null;
+            if ($hasDefaultValue) {
+                $defaultValue = $parameter->getDefaultValue();
+            }
+
+            // 没有类型
+            if ($parameter->hasType() == false) {
+                $result[$name] = [
+                    "types"           => ["mixed"],
+                    "hasDefaultValue" => $hasDefaultValue,
+                    "defaultValue"    => $defaultValue
+                ];
+                continue;
+            }
+
+            // 存在类型
+            $reflectionType = $parameter->getType();
+            $typeNames = [];
+
+            // 命名类型
+            if ($reflectionType instanceof \ReflectionNamedType) {
+                $typeNames[] = $reflectionType->getName();
+                if ($reflectionType->allowsNull()) {
+                    $typeNames[] = null;
+                }
+            }
+            // 联合类型
+            elseif ($reflectionType instanceof \ReflectionUnionType) {
+                foreach ($reflectionType->getTypes() as $typeItem) {
+                    if ($typeItem->getName() === 'null') {
+                        $typeNames[] = null; // 统一用 PHP null 表示"可为空"
+                    } else {
+                        $typeNames[] = $typeItem->getName();
+                    }
+                }
+            }
+            // 交集类型：只准许 指定类名或接口名
+            elseif ($reflectionType instanceof \ReflectionIntersectionType) {
+                $typeNames[] = "intersection";
+            }
+            // null 类型
+            else {
+                $typeNames[] = null;
+            }
+            $result[$name] = [
+                "hasDefaultValue" => $hasDefaultValue,
+                "defaultValue"    => $defaultValue,
+                "types"           => $typeNames
+            ];
         }
 
-        return $result;
+        return self::$infoCache[$class] = $result;
     }
 
     // 通过数组创建模型
-    public static function build(array $data)
+    public static function build(array $data): static
     {
-        $data = static::dataHandle($data);
-
         $class = get_called_class();
         $infos = static::getPropertyInfos();
         if (empty($infos)) {
             return new $class();
         }
 
-        $rules = static::rules();
-
         $args = [];
-        foreach ($infos as $name => $type) {
-            if (isset($data[$name])) {
-                if (isset($rules[$name]) && !Validator::is($data[$name], $rules[$name])) {
-                    throw new Exception("Validate property failed! {$class}::{$name}");
-                }
+        foreach ($infos as $name => $typeInfo) {
+            // 有值
+            if (array_key_exists($name, $data)) {
                 $value = $data[$name];
-            } else {
-                // 设置默认值
-                switch ($type) {
-                    case "string":
-                        $value = "";
-                        break;
-                    case "int":
-                    case "float":
+            }
+            // 没有值
+            else {
+                // 有默认值
+                if ($typeInfo['hasDefaultValue']) {
+                    $value = $typeInfo['defaultValue'];
+                }
+                // 没有默认值 -- 判断类型
+                else {
+                    // 判断是否可以为null
+                    if (in_array(null, $typeInfo['types'], true)) {
+                        $value = null;
+                    }
+                    elseif (in_array('int', $typeInfo['types'], true)) {
                         $value = 0;
-                        break;
-                    case "array":
+                    }
+                    elseif (in_array('float', $typeInfo['types'], true)) {
+                        $value = 0.0;
+                    }
+                    elseif (in_array("string", $typeInfo['types'], true)) {
+                        $value = "";
+                    }
+                    elseif (in_array("array", $typeInfo['types'], true)) {
                         $value = [];
-                        break;
-                    default:
-                        throw new Exception("Missing property value! {$class}::{$name}");
+                    }
+                    elseif (in_array("intersection", $typeInfo['types'], true)) {
+                        throw new Exception("该属性是交集类型，必须显式传值! {$class}::{$name}");
+                    }
+                    else {
+                        throw new Exception("该属性值不存在，必须显式传值! {$class}::{$name}");
+                    }
                 }
             }
 
@@ -181,68 +203,5 @@ abstract class ValueObject extends ObjectArrayAccess
         }
 
         return new $class(...$args);
-    }
-
-    /**
-     * 批量创建模型
-     *
-     * @param array   $items  // 二维数组
-     * @param string  $key    // 主键属性名
-     * @param boolean $unique // 主键是否唯一
-     * @return array
-     */
-    public static function buildMulti(array $items, string $key = "", bool $unique = true)
-    {
-        $models = [];
-        foreach ($items as $data) {
-            $model = static::build($data);
-            if ($key == "") {
-                $models[] = $model;
-            } else {
-                $value = $model[$key];
-                if ($unique) {
-                    $models[$value] = $model;
-                } else {
-                    $models[$value][] = $model;
-                }
-            }
-        }
-        return $models;
-    }
-
-    // 数据库字段 对应 转换成属性名
-    protected static function dataMapper()
-    {
-        return [];
-    }
-
-    // 数据处理
-    protected static function dataHandle(array $data)
-    {
-        return $data;
-    }
-
-    // 数据预处理
-    final protected static function dataPrepareHandle(array $data)
-    {
-        $mapper = static::dataMapper();
-
-        // 获取字段转换的数组
-        $transforms = [];
-        if (!empty($mapper)) {
-            foreach ($mapper as $key => $targetKey) {
-                if (isset($data[$key])) {
-                    $transforms[$targetKey] = $data[$key];
-                }
-            }
-        }
-
-        // 合并结果
-        foreach ($transforms as $key => $value) {
-            $data[$key] = $value;
-        }
-
-        // 预处理数据
-        return $data;
     }
 }
