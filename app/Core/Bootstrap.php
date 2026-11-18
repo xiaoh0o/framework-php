@@ -39,20 +39,30 @@ class Bootstrap
         $this->app->addShared("router", $router);
         $this->app->addShared(Router::class, $router);
 
-        $response = new Response();
-        $this->app->addShared("response", $response);
-        $this->app->addShared(Response::class, $response);
-
         // 发送结果
         try {
-            $response->emit($router->run());
+            $response = $router->run();
         } catch (\Throwable $e) {
             $handler = $routeConfig['exception'] ?? "";
             if (empty($handler)) {
                 $handler = DefaultHandler::class;
             }
-            echo (new $handler())->render($e);
+            $response = (new $handler())->render($e);
         }
+        $this->responseResult($response);
+    }
+
+    // 输出结果
+    protected function responseResult(Response|string|null $response)
+    {
+        if ($response instanceof Response) {
+        } else {
+            $headers = [
+                "content-type" => "text/html; charset=utf-8"
+            ];
+            $response = new Response($response, Response::HTTP_OK, $headers);
+        }
+        $response->send();
     }
 
     /**

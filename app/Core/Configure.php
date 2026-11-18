@@ -12,8 +12,15 @@ class Configure
     // 获取配置项
     public static function get(string $name)
     {
-        if (isset(static::$data[$name]) && PHP_SAPI != "cli") {
-            return static::$data[$name]['data'] ?? [];
+        if (isset(static::$data[$name])) {
+            if (PHP_SAPI != "cli") {
+                return static::$data[$name]['data'] ?? [];
+            }
+            // 判断时间
+            $seconds = time() - static::$data[$name]['mtime'] ?? 0;
+            if ($seconds < 360) { // 6分钟内
+                return static::$data[$name]['data'] ?? [];
+            }
         }
 
         // 读取文件

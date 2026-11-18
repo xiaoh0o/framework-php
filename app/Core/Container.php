@@ -32,14 +32,12 @@ class Container extends LeagueContainer
         foreach ($providers as $provider) {
             $this->addServiceProvider(new $provider());
         }
-
-        static::$instance = $this;
     }
 
     public static function instance(): Container
     {
         if (is_null(static::$instance)) {
-            new static();
+            static::$instance = new self();
         }
         return static::$instance;
     }

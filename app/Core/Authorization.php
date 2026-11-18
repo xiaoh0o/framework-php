@@ -8,9 +8,7 @@ class Authorization
 {
     private string $client_id = "";
     private string $secret    = "";
-    private string $format    = "json";
     private string $sign_type = "md5";
-    private string $version   = "1.0";
 
     public function __construct(string $client_id, string $secret)
     {
@@ -57,9 +55,7 @@ class Authorization
             $data = [
                 "client_id" => $this->client_id,
                 "datetime"  => date("Y-m-d H:i:s"),
-                "format"    => $this->format,
-                "sign_type" => $this->sign_type,
-                "version"   => $this->version
+                "sign_type" => $this->sign_type
             ];
         }
 
