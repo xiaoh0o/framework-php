@@ -14,7 +14,7 @@ interface DatabaseInterface
     public function row(string $sql): ?array;
 
     // 获取一行或一个字段
-    public function get(string $sql): ?array;
+    public function get(string $sql): int|string|null;
 
     // 查询多条
     public function rows(string $sql): array;

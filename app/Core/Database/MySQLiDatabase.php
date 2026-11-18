@@ -20,7 +20,7 @@ class MySQLiDatabase implements DatabaseInterface
     private MySQLi $connection;
     private array $sqlQueue = []; // 请求队列
     private int $sqlMaxLength = 200; // 请求队列的最大长度
-    private ?string $error = null;
+    private string $error = "";
 
     public function __construct(string $hostname, string $username, string $password, string $database)
     {
@@ -47,7 +47,7 @@ class MySQLiDatabase implements DatabaseInterface
                 $this->connect_time = time();
                 return $this->connection;
             } catch (\Throwable $e) {
-                $this->error = $this->connection->connect_error;
+                $this->error = $e->getMessage();
                 sleep(1);
             }
         }
@@ -64,13 +64,37 @@ class MySQLiDatabase implements DatabaseInterface
         return $this->connection;
     }
 
+    private function assertTable(string $table): void
+    {
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $table)) {
+            throw new Exception("Table name error: {$table}");
+        }
+    }
+
+    private function assetKey(string $key): void
+    {
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/', $key)) {
+            throw new Exception("非法字段名: {$key}");
+        }
+    }
+
+    private function findSQLMethod(string $sql): string
+    {
+        if (preg_match('/^\s*(?:\/\*.*?\*\/|--[^\n]*\n|\s)*(\w+)/s', $sql, $m)) {
+            $method = strtoupper($m[1]);
+        } else {
+            $method = '';
+        }
+        return $method;
+    }
+
     // 查询
     public function query(string $sql)
     {
         $this->insertSqlQueue($sql);
 
         $resource = $this->connection->query($sql);
-        if (! $resource) {
+        if (! $resource && in_array($this->connection->errno, [2006, 2013])) {
             // 重连再次请求
             $this->connect();
             $resource = $this->connection->query($sql);
@@ -78,7 +102,8 @@ class MySQLiDatabase implements DatabaseInterface
         
         if ($resource) {
             $this->error = "";
-            $method = trim(strtoupper(substr($sql, 0, 7)));
+            // 前面是注释时失效
+            $method = $this->findSQLMethod($sql);
             switch ($method) {
                 case "INSERT":
                     return $this->connection->insert_id;
@@ -106,6 +131,10 @@ class MySQLiDatabase implements DatabaseInterface
     // 读取一行
     public function row(string $sql): ?array
     {
+        $method = $this->findSQLMethod($sql);
+        if ($method != "SELECT") {
+            throw new Exception("请使用 SELECT 查询语句！");
+        }
         $resource = $this->query($sql);
         if ($resource) {
             $row = $resource->fetch_array(MYSQLI_ASSOC);
@@ -119,6 +148,10 @@ class MySQLiDatabase implements DatabaseInterface
     // 读取多行
     public function rows(string $sql): array
     {
+        $method = $this->findSQLMethod($sql);
+        if ($method != "SELECT") {
+            throw new Exception("请使用 SELECT 查询语句！");
+        }
         $resource = $this->query($sql);
         if ($resource) {
             $count = $resource->num_rows;
@@ -134,14 +167,11 @@ class MySQLiDatabase implements DatabaseInterface
     }
 
     // 获取一行或一个字段
-    public function get(string $sql): ?array
+    public function get(string $sql): string|int|null
     {
         $row = $this->row($sql);
         if ($row) {
-            if (count($row) == 1) {
-                return current($row);
-            }
-            return $row;
+            return current($row);
         }
         return null;
     }
@@ -149,33 +179,37 @@ class MySQLiDatabase implements DatabaseInterface
     // 写入
     public function insert(string $table, array $data): int
     {
+        $this->assertTable($table);
         $sql = $this->implodeFieldValue($data);
-        return $this->query("INSERT INTO {$this->database}.`{$table}` SET {$sql}");
+        return $this->query("INSERT INTO `{$this->database}`.`{$table}` SET {$sql}");
     }
 
     // 更新
     public function update(string $table, array $data, string|array $condition): int
     {
+        $this->assertTable($table);
         $where = $this->where($condition);
         $sql = $this->implodeFieldValue($data);
 
-        return $this->query("UPDATE {$this->database}.`{$table}` SET {$sql} WHERE {$where}");
+        return $this->query("UPDATE `{$this->database}`.`{$table}` SET {$sql} WHERE {$where}");
     }
 
     // 删除
     public function delete(string $table, string|array $condition, int $limit_number = 0): int
     {
+        $this->assertTable($table);
         $where = $this->where($condition);
-        $limit = $limit_number > 0 ? "LIMIT 0, {$limit_number}" : "";
+        $limit = $limit_number > 0 ? "LIMIT {$limit_number}" : "";
 
-        return $this->query("DELETE FROM {$this->database}.`{$table}` WHERE {$where} {$limit}");
+        return $this->query("DELETE FROM `{$this->database}`.`{$table}` WHERE {$where} {$limit}");
     }
 
     // 替换, 必须保证有主键
     public function replace(string $table, array $data): int
     {
+        $this->assertTable($table);
         $sql = $this->implodeFieldValue($data);
-        return $this->query("REPLACE INTO {$this->database}.`{$table}` SET {$sql}");
+        return $this->query("REPLACE INTO `{$this->database}`.`{$table}` SET {$sql}");
     }
 
     // 受影响的行数
@@ -205,43 +239,47 @@ class MySQLiDatabase implements DatabaseInterface
     // 字段自增
     public function incr(string $table, array $incrData, array $updateData, string|array $condition): int
     {
+        $this->assertTable($table);
         $where = $this->where($condition);
 
         $fields = [];
         foreach ($incrData as $key => $value) {
+            $this->assetKey($key);
             if (!is_numeric($value)) {
                 throw new Exception("自增字段，参数必须是数字类型！");
             }
             $value = abs($value);
-            $fields[] = "`{$key}` = `{$key}` + {$value}";
+            $fields[] = "{$key} = {$key} + {$value}";
         }
         $sql = implode(", ", $fields);
         if (!empty($updateData)) {
             $sql .= ", ". $this->implodeFieldValue($updateData);
         }
 
-        return $this->query("UPDATE {$this->database}.`{$table}` SET {$sql} WHERE {$where}");
+        return $this->query("UPDATE `{$this->database}`.`{$table}` SET {$sql} WHERE {$where}");
     }
 
     // 字段自减
     public function decr(string $table, array $decrData, array $updateData, string|array $condition): int
     {
+        $this->assertTable($table);
         $where = $this->where($condition);
 
         $fields = [];
         foreach ($decrData as $key => $value) {
+            $this->assetKey($key);
             if (!is_numeric($value)) {
                 throw new Exception("自减字段，参数必须是数字类型！");
             }
             $value = abs($value);
-            $fields[] = "`{$key}` = `{$key}` - {$value}";
+            $fields[] = "{$key} = {$key} - {$value}";
         }
         $sql = implode(", ", $fields);
         if (!empty($updateData)) {
             $sql .= ", ". $this->implodeFieldValue($updateData);
         }
 
-        return $this->query("UPDATE {$this->database}.`{$table}` SET {$sql} WHERE {$where}");
+        return $this->query("UPDATE `{$this->database}`.`{$table}` SET {$sql} WHERE {$where}");
     }
 
     // 转义字符串
@@ -267,29 +305,38 @@ class MySQLiDatabase implements DatabaseInterface
         if (is_array($condition)) {
             $wheres = [];
             foreach ($condition as $keys => $value) {
-                $value = $this->implodeWhereValue($value);
-
-                // keys 如果是Int
-                if (is_int($keys)) {
-                    continue;
+                if (!is_string($keys)) {
+                    throw new Exception("字段名称必须是字符串！");
                 }
 
-                $count = preg_match('/([a-z0-9_\.`]+)(\[(?<operator>\>\=?|\<\=?|\!|\~|\^|\$)\])?/i', $keys, $match);
+                $count = preg_match('/([a-z0-9_\.]+)(\[(?<operator>\>\=?|\<\=?|\!|\~|\^|\$)\])?/i', $keys, $match);
                 if ($count == false) {
                     throw new Exception("where [key] error!");
-                } 
+                }
                 $key = $match[1];
-                if (strpos($key, ".") !== false || strpos($key, "`") !== false) {
+                if (strpos($key, ".") !== false) {
                     $fieldKey = $key;
                 } else {
                     $fieldKey = "`{$key}`";
                 }
+
+                $value = $this->implodeWhereValue($value);
                 if (isset($match['operator'])) {
                     $operator = $match['operator'];
                     if (in_array($operator, ['>', '>=', '<', '<='])) {
-                        $wheres[] = "{$fieldKey} {$operator} {$value}";
+                        if (is_int($value) || is_float($value)) {
+                            $wheres[] = "{$fieldKey} {$operator} {$value}";
+                        } else {
+                            throw new Exception("仅支持数值类型的比较！");
+                        }
                     } elseif (in_array($operator, ['~', '$', '^'])) {
-                        $value = trim(strval($value), "'");
+                        if (is_int($value) || is_float($value)) {
+                            $value = strval($value);
+                        }
+                        if (!is_string($value)) {
+                            throw new Exception("数据格式不正确！");
+                        }
+                        $value = str_replace(['%', '_'], ['\%', '\_'], $value);
                         switch ($operator) {
                             case '~': // LIKE
                                 $wheres[] = "{$fieldKey} LIKE '%{$value}%'";
@@ -306,8 +353,10 @@ class MySQLiDatabase implements DatabaseInterface
                             $wheres[] = "{$fieldKey} NOT IN (". implode(", ", $value) .")";
                         } elseif (is_null($value)) {
                             $wheres[] = "{$fieldKey} IS NOT NULL";
-                        } else {
+                        } elseif (is_int($value) || is_float($value)) {
                             $wheres[] = "{$fieldKey} != {$value}";
+                        } else {
+                            $wheres[] = "{$fieldKey} != '{$value}'";
                         }
                     }
                 } else {
@@ -315,8 +364,10 @@ class MySQLiDatabase implements DatabaseInterface
                         $wheres[] = "{$fieldKey} IN (". implode(", ", $value) .")";
                     } elseif (is_null($value)) {
                         $wheres[] = "{$fieldKey} IS NULL";
-                    } else {
+                    } elseif (is_int($value) || is_float($value)) {
                         $wheres[] = "{$fieldKey} = {$value}";
+                    } else {
+                        $wheres[] = "{$fieldKey} = '{$value}'";
                     }
                 }
             }
@@ -333,7 +384,7 @@ class MySQLiDatabase implements DatabaseInterface
      * @param int|float|string|array|null|bool $values 当为数组时，必须是一维数组
      * @return mixed
      */
-    private function implodeWhereValue($values)
+    private function implodeWhereValue($values): mixed
     {
         if (is_int($values) || is_float($values) || is_null($values)) {
             return $values;
@@ -342,8 +393,7 @@ class MySQLiDatabase implements DatabaseInterface
             return $values ? 1 : 0;
         }
         if (is_string($values)) {
-            $values = $this->encode($values);
-            return "'{$values}'";
+            return $this->encode($values);
         }
         if (is_array($values)) {
             $data = [];
@@ -361,24 +411,23 @@ class MySQLiDatabase implements DatabaseInterface
     // 字段组合
     private function implodeFieldValue(array $array, string $glue = ',')
     {
-        $arrays = [];
+        $parts = [];
         foreach ($array as $key => $value) {
-            $value = $this->encode($value);
-            if (strpos($key, ".") !== false || strpos($key, "`") !== false) {
-                $fieldKey = $key;
-            } else {
-                $fieldKey = "`{$key}`";
-            }
+            $fieldKey = str_contains($key, '.') ? $key : "`{$key}`";
 
-            if (is_string($value)) {
-                $arrays[] = "{$fieldKey} = '{$value}'";
-            } elseif (is_null($value)) {
-                $arrays[] = "{$fieldKey} = NULL";
+            if (is_null($value)) {
+                $parts[] = "{$fieldKey} = NULL";
+            } elseif (is_bool($value)) {
+                $parts[] = "{$fieldKey} = " . ($value ? 1 : 0);
+            } elseif (is_int($value) || is_float($value)) {
+                $parts[] = "{$fieldKey} = {$value}"; // 数字不加引号
+            } elseif (is_string($value)) {
+                $parts[] = "{$fieldKey} = '" . $this->encode($value) . "'";
             } else {
-                $arrays[] = $value;
+                throw new Exception("字段值类型不支持: " . gettype($value));
             }
         }
-        return implode(" {$glue} ", $arrays);
+        return implode(" {$glue} ", $parts);
     }
 
     // 获取请求队列
@@ -394,17 +443,6 @@ class MySQLiDatabase implements DatabaseInterface
         if (count($this->sqlQueue) >= $this->sqlMaxLength) {
             array_shift($this->sqlQueue);
         }
-    }
-
-    // 判断表是否存在
-    public function hasTable(string $table)
-    {
-        $sql = "SELECT 1 FROM `information_schema`.`TABLES` WHERE `TABLE_SCHEMA` = '{$this->database}' AND `TABLE_NAME` = '{$table}'";
-        $row = $this->row($sql);
-        if ($row) {
-            return true;
-        }
-        return false;
     }
 
     // 返回一个事务类
