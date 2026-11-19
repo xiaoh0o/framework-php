@@ -29,8 +29,6 @@ class Bootstrap
 
     protected function web()
     {
-        session_start();
-
         $request = $this->app->get(Request::class);
         $server = $request->server->all(); // 等效于$_SERVER
 
