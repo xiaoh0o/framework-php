@@ -1,6 +1,5 @@
 <?php
-
-use App\Core\Configure;
+## 准备阶段
 
 require(__DIR__."/defines.php");
 require(__DIR__."/functions.php");
