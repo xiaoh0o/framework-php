@@ -34,7 +34,7 @@ class Container extends LeagueContainer
         }
     }
 
-    public static function instance(): Container
+    public static function instance(): static
     {
         if (is_null(static::$instance)) {
             static::$instance = new self();
