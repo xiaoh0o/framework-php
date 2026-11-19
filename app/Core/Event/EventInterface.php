@@ -14,4 +14,7 @@ interface EventInterface
 
     // 返回事件日志
     public function logger(): EventLogger;
+
+    // 返回所有处理器
+    public function handlers(): array;
 }

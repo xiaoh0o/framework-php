@@ -44,7 +44,7 @@ class Dispatcher
             }
         }
 
-        // 当队列为空时，暂停1秒
+        // 当没有处理任何数据时，暂停1秒
         if ($number == 0) {
             sleep(1);
         }

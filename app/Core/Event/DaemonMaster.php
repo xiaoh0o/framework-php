@@ -81,9 +81,6 @@ class DaemonMaster
         }
 
         while (true) {
-            // 判断是否退出
-            pcntl_signal_dispatch();
-
             // 向所有子进程发出 退出信号
             if ($this->signal == "exit") {
                 foreach ($this->childs as $pid) {
@@ -100,6 +97,9 @@ class DaemonMaster
                     unset($this->childs[$pid]);
                 }
             }
+
+            // 判断是否退出
+            pcntl_signal_dispatch();
 
             sleep(1);
         }
@@ -125,11 +125,16 @@ class DaemonMaster
         // 向主进程 发出退出信号
         $this->logger->info("Event main process stopping [{$mainPid}]");
         posix_kill($mainPid, SIGTERM);
-
-        // 判断主进程是否退出
-        pcntl_waitpid($mainPid, $status, WNOHANG);
+        $timeout = 10;
+        while ($timeout > 0 && posix_kill($mainPid, 0)) {
+            usleep(200000);
+            $timeout -= 1;
+        }
 
         $message = "Event main process stopped [{$mainPid}]";
+        if ($timeout == 0) {
+            $message .= " [timeout exit]";
+        }
         $this->logger->info($message);
         echo $message.PHP_EOL;
     }
@@ -161,7 +166,6 @@ class DaemonMaster
         switch ($signo) {
             case SIGTERM: // 停止信号
                 $this->signal = "exit";
-                $this->store->delete();
                 break;
             default:
                 $this->signal = "";

@@ -55,7 +55,7 @@ class Event implements EventInterface
     // 处理器
     public function handlers(): array
     {
-        if (is_null(static::$handlers) && time() - static::$handlerTime > 300) {
+        if (is_null(static::$handlers) || time() - static::$handlerTime > 300) {
             static::$handlers = $this->loadHandlers();
             static::$handlerTime = time();
         }
