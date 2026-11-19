@@ -1,6 +1,7 @@
 <?php
 namespace App\Core\Queue;
 
+use App\Core\Configure;
 use Redis;
 
 /**
@@ -9,12 +10,14 @@ use Redis;
 class RedisQueue implements DriverInterface
 {
     protected string $channel; // 队列名称
-    protected array $config; // Redis配置文件名称
     protected Redis $driver;
 
-    public function __construct(array $config)
-    {
-        $this->config = $config;
+    public function __construct(
+        protected string $host,
+        protected int $port,
+        protected string $password,
+        protected int $database
+    ) {
         $this->connect();
     }
 
@@ -77,15 +80,10 @@ class RedisQueue implements DriverInterface
     // 链接
     public function connect(): Redis
     {
-        $host     = $this->config['host'];
-        $port     = $this->config['port'];
-        $password = $this->config['auth'] ?? "";
-        $database = $this->config['database'];
-
         $driver = new Redis();
-        $status = $driver->pconnect($host, $port, 1, null, 5, 60, ['auth' => [$password]]);
+        $status = $driver->pconnect($this->host, $this->port, 1, null, 5, 60, ['auth' => [$this->password]]);
         if ($status) {
-            $driver->select($database);
+            $driver->select($this->database);
         } else {
             throw new \Exception("Connect redis server failed!");
         }
@@ -113,5 +111,16 @@ class RedisQueue implements DriverInterface
     protected function decodeValue(string $value)
     {
         return json_decode($value, true);
+    }
+
+    public static function instance()
+    {
+        $config = Configure::get("queue");
+        return new static(
+            $config['host'],
+            $config['port'],
+            $config['password'],
+            $config['database']
+        );
     }
 }

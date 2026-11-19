@@ -9,37 +9,24 @@ use Exception;
 class Queue implements QueueInterface
 {
     protected string $channel; // 队列名称
-    protected DriverInterface $driver;
+    protected ?DriverInterface $driver = null;
     protected static array $configs = []; // 配置文件
-
-    /**
-     * 配置连接数据
-     *
-     * @param array $configs
-     * [
-     *    "redis" => [
-     *        "host" => "127.0.0.1",
-     *        "port" => 6379,
-     *        "auth" => "",
-     *        "database" => 0
-     *    ]
-     * ]
-     */
-    public static function configs(array $configs)
-    {
-        static::$configs = $configs;
-    }
 
     public function __construct(string $channel, string $driverName = "redis")
     {
         $this->channel = trim($channel);
-        if ($driverName == "redis" && isset(static::$configs[$driverName])) {
-            $driver = new RedisQueue(static::$configs[$driverName]);
+        if ($driverName == "redis") {
+            $driver = RedisQueue::instance();
             $driver->setChannel($this->channel);
             $this->driver = $driver;
         } else {
             throw new Exception("Not found driver!");
         }
+    }
+
+    public function setDriver(DriverInterface $driver)
+    {
+        $this->driver = $driver;
     }
 
     // 从头部取出
