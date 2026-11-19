@@ -31,8 +31,4 @@ class Response extends SymfonyResponse
     {
         $this->headers->set($name, $value);
     }
-
-    // SymfonyResponse::setContent(string $content);
-
-    // SymfonyResponse::setCharset(string $charset);
 }
