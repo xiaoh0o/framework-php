@@ -34,7 +34,7 @@ class Dispatcher
                 break;
             }
 
-            // 3) 取一条数据（阻塞或非阻塞，见下文）
+            // 3) 取一条数据
             $data = $queue->pop();
             if (empty($data)) {
                 // 没数据，短暂休眠，避免空转
