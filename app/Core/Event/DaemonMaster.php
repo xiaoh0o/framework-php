@@ -20,7 +20,7 @@ class DaemonMaster
         if (! function_exists("pcntl_fork")) {
             throw new Exception("pcntl_fork not found");
         }
-        $this->store = new EventStore();
+        $this->store  = new EventStore();
         $this->logger = (new Event())->logger();
     }
 
@@ -193,7 +193,7 @@ class DaemonMaster
                 $dispatcher->setMaxHandleNumber($this->maxHandleNumber);
                 $dispatcher->run($running);
             } catch (\Throwable $e) {
-                $this->logger->error("worker exception: " . $e->getMessage());
+                (new Event())->logger()->warning("worker exception: " . $e->getMessage());
             }
 
             // 5. 退出

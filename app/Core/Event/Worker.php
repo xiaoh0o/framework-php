@@ -8,9 +8,8 @@ class Worker
 {
     protected EventLogger $logger;
     protected array $handlers = [];
-    protected mixed $data;
+    protected array $data = [];
 
-    // 设置日志处理器
     public function setLogger(EventLogger $logger)
     {
         $this->logger = $logger;
