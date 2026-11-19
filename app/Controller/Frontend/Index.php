@@ -4,7 +4,7 @@ namespace App\Controller\Frontend;
 /**
  * 首页控制器
  */
-class IndexController extends Controller
+class Index extends Controller
 {
     public function index()
     {
