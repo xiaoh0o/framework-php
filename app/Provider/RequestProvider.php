@@ -18,7 +18,6 @@ class RequestProvider extends AbstractServiceProvider
     public function register(): void
     {
         $request = Request::createFromGlobals();
-
         $this->getContainer()->addShared(Request::class, $request);
         $this->getContainer()->addShared("request",      $request);
     }
