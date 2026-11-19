@@ -8,10 +8,10 @@ use App\Core\Container;
  */
 class Router
 {
-    protected array $routes = [];       // 路由配置表
-    protected array $allowOrigns = [];
-    protected array $serverParams = [];
-    protected Route $route;
+    protected array $routes       = []; // 路由配置数组
+    protected array $allowOrigns  = []; // 准许CORS的源
+    protected array $serverParams = []; // $_SERVER 参数
+    protected ?Route $route       = null; // 匹配成功的路由
 
     public function __construct(
         protected Container $app
@@ -130,8 +130,11 @@ class Router
      */
     protected function corsHandle(string $httpMethod)
     {
-        $origin = $_SERVER['HTTP_ORIGIN'] ?? "*";
+        $origin = $this->serverParams['HTTP_ORIGIN'] ?? "";
         if (empty($this->allowOrigns)) {
+            if ($origin == "") {
+                $origin = "*";
+            }
             header("Access-Control-Allow-Origin: {$origin}");
         } else {
             if (in_array($origin, $this->allowOrigns)) {
