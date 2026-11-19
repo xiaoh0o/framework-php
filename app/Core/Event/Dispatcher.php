@@ -15,40 +15,46 @@ class Dispatcher
         }
     }
 
-    public function run()
+    public function run(?bool &$running = null)
     {
+        $running ??= true;
+
         $event    = new Event();
         $queue    = $event->queue();
         $logger   = $event->logger();
         $handlers = $event->handlers();
 
-        // 循环处理
-        for ($number = 0; $number < $this->maxHandleNumber; $number++) {
-            try {
-                $data = $queue->pop();
-                if ($data) {
-                    // 处理数据
-                    $worker = new Worker();
-                    $worker->setLogger($logger);
-                    $worker->setHandlers($handlers);
-                    $worker->setData($data);
-                    $worker->run();
-                } else {
-                    // 没有记录，跳出循环
-                    break;
-                }
-            } catch (\Throwable $e) {
-                $logger->error("Event worker failed", [
-                    "message" => $e->getMessage()
-                ]);
+        $number = 0;
+        while ($running) {
+            // 1) 分发待处理的信号（让 handler 有机会执行）
+            pcntl_signal_dispatch();
+
+            // 2) 信号可能刚把 running 置 false，立即检查
+            if (!$running) {
+                break;
+            }
+
+            // 3) 取一条数据（阻塞或非阻塞，见下文）
+            $data = $queue->pop();
+            if (empty($data)) {
+                // 没数据，短暂休眠，避免空转
+                usleep(200000);
+                continue;
+            }
+
+            // 4) 处理数据
+            $worker = new Worker();
+            $worker->setLogger($logger);
+            $worker->setHandlers($handlers);
+            $worker->setData($data);
+            $worker->run();
+
+            $number += 1;
+
+            // 5) 退出
+            if ($number >= $this->maxHandleNumber) {
+                break;
             }
         }
-
-        // 当没有处理任何数据时，暂停1秒
-        if ($number == 0) {
-            sleep(1);
-        }
-
-        exit(0);
     }
 }

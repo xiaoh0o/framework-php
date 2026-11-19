@@ -62,6 +62,7 @@ class DaemonMaster
 
         if ($mPid > 0) {
             // 父进程结束
+            $this->store->delete();
             exit();
         }
 
@@ -81,15 +82,34 @@ class DaemonMaster
         }
 
         while (true) {
-            // 向所有子进程发出 退出信号
             if ($this->signal == "exit") {
+                // 向所有子进程发出 退出信号
                 foreach ($this->childs as $pid) {
                     posix_kill($pid, SIGTERM);
+                }
+
+                // 等待子进程收尾（带超时，防止卡死）
+                $deadline = time() + 10;
+                while (!empty($this->childs) && time() < $deadline) {
+                    foreach ($this->childs as $pid) {
+                        $res = pcntl_waitpid($pid, $status, WNOHANG);
+                        if ($res > 0 || $res == -1) {
+                            unset($this->childs[$pid]);
+                        }
+                    }
+                    usleep(200000);
+                }
+
+                // 超时仍未退出的，强杀
+                foreach ($this->childs as $pid) {
+                    posix_kill($pid, SIGKILL);
+                    pcntl_waitpid($pid, $status, 0);
                     unset($this->childs[$pid]);
                 }
                 break;
             }
 
+            // 巡检子进程状态
             foreach ($this->childs as $pid) {
                 $res = pcntl_waitpid($pid, $status, WNOHANG);
                 if ($res > 0 || $res == -1) {
@@ -119,21 +139,22 @@ class DaemonMaster
             return 0;
         }
 
-        // 删除保存的主进程ID
-        $this->store->delete();
-
         // 向主进程 发出退出信号
         $this->logger->info("Event main process stopping [{$mainPid}]");
         posix_kill($mainPid, SIGTERM);
-        $timeout = 10;
-        while ($timeout > 0 && posix_kill($mainPid, 0)) {
+        
+        $deadline = time() + 10;
+        while (time() < $deadline && posix_kill($mainPid, 0)) {
             usleep(200000);
-            $timeout -= 1;
         }
+        $timedOut = posix_kill($mainPid, 0); 
+
+        // 删除保存的主进程ID
+        $this->store->delete();
 
         $message = "Event main process stopped [{$mainPid}]";
-        if ($timeout == 0) {
-            $message .= " [timeout exit]";
+        if ($timedOut) {
+            $message .= " [Timeout]";
         }
         $this->logger->info($message);
         echo $message.PHP_EOL;
@@ -151,11 +172,31 @@ class DaemonMaster
             $this->childs[$pid] = $pid;
         }
 
-        // 子进程 消费
+        // 子进程
         if ($pid == 0) {
-            $dispatcher = new Dispatcher();
-            $dispatcher->setMaxHandleNumber($this->maxHandleNumber);
-            $dispatcher->run();
+            // 1. 清空继承自父进程的状态，避免误用
+            $this->childs = [];
+
+            // 2. 重置从父进程继承的 SIGTERM handler（父进程注册的是 [$this,'signalHandler']）
+            pcntl_signal(SIGTERM, SIG_DFL);
+
+
+            // 3. 注册自己的优雅退出处理器
+            $running = true;
+            pcntl_signal(SIGTERM, function () use (&$running) {
+                $running = false;
+            });
+
+            // 4. 运行 Dispatcher，传入标志
+            try {
+                $dispatcher = new Dispatcher();
+                $dispatcher->setMaxHandleNumber($this->maxHandleNumber);
+                $dispatcher->run($running);
+            } catch (\Throwable $e) {
+                $this->logger->error("worker exception: " . $e->getMessage());
+            }
+
+            // 5. 退出
             exit(0);
         }
     }
