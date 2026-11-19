@@ -113,13 +113,13 @@ class RedisQueue implements DriverInterface
         return json_decode($value, true);
     }
 
-    public static function instance()
+    public static function instance(): static
     {
         $config = Configure::get("queue");
-        return new static(
+        return new self(
             $config['host'],
             $config['port'],
-            $config['password'],
+            $config['auth'],
             $config['database']
         );
     }
