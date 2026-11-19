@@ -55,19 +55,10 @@ class MySQLiDatabase implements DatabaseInterface
         throw new Exception('数据库连接错误！');
     }
 
-    public function ping()
-    {
-        $time = time() - $this->connect_time;
-        if ($time > 7200) {
-            $this->connect();
-        }
-        return $this->connection;
-    }
-
     private function assertTable(string $table): void
     {
         if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $table)) {
-            throw new Exception("Table name error: {$table}");
+            throw new Exception("数据库表名无效！[{$table}]");
         }
     }
 
@@ -75,7 +66,7 @@ class MySQLiDatabase implements DatabaseInterface
     {
         $count = preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/', $key);
         if ($count == false) {
-            throw new Exception("where [key] error!");
+            throw new Exception("数据表字段名无效！[{$key}]");
         }
     }
 
@@ -100,7 +91,7 @@ class MySQLiDatabase implements DatabaseInterface
             $this->connect();
             $resource = $this->connection->query($sql);
         }
-        
+
         if ($resource) {
             $this->error = "";
             // 前面是注释时失效
@@ -289,13 +280,7 @@ class MySQLiDatabase implements DatabaseInterface
     // 转义字符串
     public function encode(string $content): string
     {
-        try {
-            $result = $this->connection->real_escape_string($content);
-        } catch (\Throwable $e) {
-            $this->ping();
-            $result = $this->connection->real_escape_string($content);
-        }
-        return $result;
+        return $this->connection->real_escape_string($content);
     }
 
     // where 语句组合

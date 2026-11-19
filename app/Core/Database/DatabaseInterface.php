@@ -8,8 +8,6 @@ use Closure;
  */
 interface DatabaseInterface
 {
-    public function ping();
-
     // 查询一条
     public function row(string $sql): ?array;
 

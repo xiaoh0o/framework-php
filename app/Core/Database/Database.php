@@ -1,6 +1,7 @@
 <?php
 namespace App\Core\Database;
 
+use App\Core\Configure;
 use App\Core\HttpException;
 
 /**
@@ -8,40 +9,12 @@ use App\Core\HttpException;
  */
 class Database
 {
-    private static $instances  = [];
-    private static $timestamps = [];
-    private static $timeout    = 7200; // 连接两个小时过期
-    private static $configs    = [];
+    private static array $instances  = [];
+    private static array $timestamps = [];
+    private static int   $timeout    = 7200; // 连接两个小时过期
 
     private function __construct()
     {
-    }
-
-    /**
-     * 配置数据库连接数据
-     *
-     * @param array $configs
-     * [
-     *    "default" => "default",
-     *    "drivers" => [
-     *        "default" => [
-     *            "hostname" => "",
-     *            "username" => "",
-     *            "password" => "",
-     *            "database" => ""
-     *        ],
-     *        "logs" => [
-     *            "hostname" => "",
-     *            "username" => "",
-     *            "password" => "",
-     *            "database" => ""
-     *        ]
-     *    ]
-     * ]
-     */
-    public static function configs(array $configs)
-    {
-        static::$configs = $configs;
     }
 
     /**
@@ -59,8 +32,9 @@ class Database
         // 获取引用的Key
         $key = static::instanceKey($name);
 
-        if (isset(static::$configs['drivers'][$name])) {
-            $config = static::$configs['drivers'][$name];
+        $configs = Configure::get("database");
+        if (isset($configs['drivers'][$name])) {
+            $config = $configs['drivers'][$name];
             if (!isset(static::$instances[$key])) {
                 static::$instances[$key] = new MySQLiDatabase(
                     $config['hostname'],
@@ -82,7 +56,7 @@ class Database
      * @param string $name
      * @return DatabaseInterface
      */
-    public static function instance($name = "default")
+    public static function instance($name = "default"): DatabaseInterface
     {
         if ($name == "") {
             $name = "default";
@@ -96,10 +70,7 @@ class Database
             static::$instances[$key] = static::connect($name);
         }
 
-        // 检验连接，并重连
-        $db = static::$instances[$key];
-        $db->ping();
-        return $db;
+        return static::$instances[$key];
     }
 
     /**
