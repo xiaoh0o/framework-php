@@ -97,11 +97,11 @@ class Bootstrap
     }
 
     // 匹配路由配置
-    protected function matchRouter(string $http_host)
+    protected function matchRouter(string $httpHost)
     {
         $configs = Configure::get("router");
         foreach ($configs as $config) {
-            if (in_array($http_host, (array)$config['domains'])) {
+            if (in_array($httpHost, (array)$config['domains'])) {
                 return $config;
             }
         }
