@@ -16,9 +16,7 @@ class Queue implements QueueInterface
     {
         $this->channel = trim($channel);
         if ($driverName == "redis") {
-            $driver = RedisQueue::instance();
-            $driver->setChannel($this->channel);
-            $this->driver = $driver;
+            $this->driver = new RedisQueue($this->channel);
         } else {
             throw new Exception("Not found queue driver!");
         }

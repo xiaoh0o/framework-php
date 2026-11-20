@@ -1,7 +1,7 @@
 <?php
 namespace App\Core\Queue;
 
-use App\Core\Configure;
+use App\Core\RedisConnection;
 use Redis;
 
 /**
@@ -12,13 +12,10 @@ class RedisQueue implements DriverInterface
     protected string $channel; // 队列名称
     protected Redis $driver;
 
-    public function __construct(
-        protected string $host,
-        protected int $port,
-        protected string $password,
-        protected int $database
-    ) {
-        $this->connect();
+    public function __construct(string $channel)
+    {
+        $this->setChannel($channel);
+        $this->driver = RedisConnection::instance("queue");
     }
 
     public function setChannel(string $channel)
@@ -77,20 +74,6 @@ class RedisQueue implements DriverInterface
         return $status;
     }
 
-    // 链接
-    public function connect(): Redis
-    {
-        $driver = new Redis();
-        $status = $driver->pconnect($this->host, $this->port, 1, null, 5, 60, ['auth' => [$this->password]]);
-        if ($status) {
-            $driver->select($this->database);
-        } else {
-            throw new \Exception("Connect redis server failed!");
-        }
-        $this->driver = $driver;
-        return $driver;
-    }
-
     /**
      * 保存到缓存的值
      *
@@ -111,16 +94,5 @@ class RedisQueue implements DriverInterface
     protected function decodeValue(string $value)
     {
         return json_decode($value, true);
-    }
-
-    public static function instance(): static
-    {
-        $config = Configure::get("queue");
-        return new self(
-            $config['host'],
-            $config['port'],
-            $config['auth'],
-            $config['database']
-        );
     }
 }
