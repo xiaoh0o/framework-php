@@ -166,10 +166,14 @@ class Cache implements CacheInterface
         }
         $key = strtolower($key);
         if ($this->prefix == "") {
-            $cacheKey = $key;
+            $key = $key;
         } else {
-            $cacheKey = "{$this->prefix}:{$key}";
+            $key = "{$this->prefix}:{$key}";
         }
+
+        // 统一增加前缀
+        $cacheKey = "CACHE:". strtolower($key);
+
         $this->validateKey($cacheKey);
         return $cacheKey;
     }

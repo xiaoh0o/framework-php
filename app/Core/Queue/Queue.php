@@ -14,7 +14,8 @@ class Queue implements QueueInterface
 
     public function __construct(string $channel, string $driverName = "redis")
     {
-        $this->channel = trim($channel);
+        $this->setChannel($channel);
+
         if ($driverName == "redis") {
             $this->driver = new RedisQueue($this->channel);
         } else {
@@ -49,5 +50,24 @@ class Queue implements QueueInterface
     public function length()
     {
         return $this->driver->length();
+    }
+
+    // 设置
+    protected function setChannel(string $channel)
+    {
+        $channel = trim($channel);
+        $this->validateChannel($channel);
+        $this->channel = $channel;
+    }
+
+    // 验证
+    protected function validateChannel(string $channel)
+    {
+        if ($channel == "") {
+            throw new Exception("Invalid channel value! [{$channel}]");
+        }
+        if (preg_match("/^[a-zA-Z0-9\-\_\:\.]+$/", $channel) == false) {
+            throw new Exception("Invalid channel value! [{$channel}]");
+        }
     }
 }

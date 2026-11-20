@@ -26,7 +26,7 @@ class RedisQueue implements DriverInterface
     // 从头部获取
     public function pop()
     {
-        $value = $this->driver->rpop($this->channel);
+        $value = $this->driver->rpop($this->buildKey());
         if ($value) {
             return $this->decodeValue($value);
         }
@@ -37,26 +37,20 @@ class RedisQueue implements DriverInterface
     public function push(mixed $data)
     {
         $value = $this->encodeValue($data);
-        return $this->driver->lpush($this->channel, $value);
+        return $this->driver->lpush($this->buildKey(), $value);
     }
 
     // 头部写入
     public function rpush(mixed $data)
     {
         $value = $this->encodeValue($data);
-        return $this->driver->rpush($this->channel, $value);
+        return $this->driver->rpush($this->buildKey(), $value);
     }
 
     // 获取消息队列长度
     public function length(): int
     {
-        return $this->driver->llen($this->channel);
-    }
-
-    // 关闭连接
-    public function close()
-    {
-        $this->driver->close();
+        return $this->driver->llen($this->buildKey());
     }
 
     // 判断连接
@@ -94,5 +88,11 @@ class RedisQueue implements DriverInterface
     protected function decodeValue(string $value)
     {
         return json_decode($value, true);
+    }
+
+    // 统一增加前缀
+    protected function buildKey()
+    {
+        return "QUEUE:". strtolower($this->channel);
     }
 }
