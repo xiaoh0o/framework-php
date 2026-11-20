@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace App\Core\Cache;
 
 use Exception;
@@ -112,11 +114,11 @@ class Cache implements CacheInterface
     }
 
     /**
-     * 自增
+     * 自增 （必须为INT）
      *
      * @param string|int $key
      * @param integer $number
-     * @return integer
+     * @return integer // 结果值
      */
     public function incr(string|int $key, int $number = 1): int
     {
@@ -125,11 +127,11 @@ class Cache implements CacheInterface
     }
 
     /**
-     * 自减
+     * 自减 （必须为INT）
      *
      * @param string|int $key
      * @param integer $number
-     * @return integer
+     * @return integer // 结果值
      */
     public function decr(string|int $key, int $number = 1): int
     {

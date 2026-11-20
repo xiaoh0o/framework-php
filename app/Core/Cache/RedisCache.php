@@ -113,8 +113,8 @@ class RedisCache implements CacheDriverInterface
      * 如果 key 不存在，创建并初始化为 0，然后再自增
      *
      * @param string $key
-     * @param integer $number
-     * @return integer
+     * @param int $number
+     * @return int
      */
     public function incr(string $key, int $number): int
     {
@@ -127,8 +127,8 @@ class RedisCache implements CacheDriverInterface
      * 如果 key 不存在，创建并初始化为 0，然后再自减
      *
      * @param string $key
-     * @param integer $number
-     * @return integer
+     * @param int $number
+     * @return int
      */
     public function decr(string $key, int $number): int
     {
