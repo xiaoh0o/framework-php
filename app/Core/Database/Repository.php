@@ -1,7 +1,5 @@
 <?php
-namespace App\Core;
-
-use App\Core\Database\DatabaseInterface;
+namespace App\Core\Database;
 
 /**
  * 仓储基类
