@@ -76,7 +76,7 @@ class RedisQueue implements DriverInterface
      */
     protected function encodeValue(mixed $value)
     {
-        return json_encode($value);
+        return json_encode($value, JSON_UNESCAPED_UNICODE);
     }
 
     /**
