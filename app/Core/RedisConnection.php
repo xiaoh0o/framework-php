@@ -57,9 +57,9 @@ class RedisConnection
     protected static function connectFromConfig(string $name)
     {
         $configs = Configure::get($name);
-        $config = $configs['drivers']['redis'] ?? [];
+        $config = $configs['drivers']["redis"] ?? [];
         if (empty($config)) {
-            throw new Exception("Not found cache config!");
+            throw new Exception("Not found config!");
         }
 
         static::$instance = static::connect(
