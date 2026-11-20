@@ -1,6 +1,4 @@
 <?php
-declare(strict_types=1);
-
 namespace App\Core\Cache;
 
 use Exception;
@@ -17,7 +15,7 @@ class Cache implements CacheInterface
     public function __construct(string $driverName = "redis")
     {
         if ($driverName == "redis") {
-            $driver = RedisCache::instance();
+            $driver = new RedisCache();
             $this->setDriver($driver);
         } else {
             throw new Exception("Not found cache driver!");

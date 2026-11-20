@@ -1,8 +1,7 @@
 <?php
 namespace App\Core\Cache;
 
-use App\Core\Configure;
-use Exception;
+use App\Core\RedisConnection;
 use Redis;
 
 /**
@@ -12,13 +11,9 @@ class RedisCache implements CacheDriverInterface
 {
     protected Redis $driver;
 
-    public function __construct(
-        protected string $host,
-        protected int $port,
-        protected string $password,
-        protected int $database
-    ) {
-        $this->connect();
+    public function __construct()
+    {
+        $this->driver = RedisConnection::instance("cache");
     }
 
     public function has(string $key): bool
@@ -142,20 +137,6 @@ class RedisCache implements CacheDriverInterface
         return $this->driver->ttl($key);
     }
 
-    // 链接
-    public function connect(): Redis
-    {
-        $driver = new Redis();
-        $status = $driver->pconnect($this->host, $this->port, 1, null, 5, 60, ['auth' => [$this->password]]);
-        if ($status) {
-            $driver->select($this->database);
-        } else {
-            throw new \Exception("Connect redis server failed!");
-        }
-        $this->driver = $driver;
-        return $driver;
-    }
-
     /**
      * 保存到缓存的值
      *
@@ -176,22 +157,5 @@ class RedisCache implements CacheDriverInterface
     protected function decodeValue(string $value)
     {
         return json_decode($value, true);
-    }
-
-    public static function instance()
-    {
-        $configs = Configure::get("cache");
-        $config = $configs['drivers']['redis'] ?? [];
-
-        if (empty($config)) {
-            throw new Exception("Not found cache config!");
-        }
-
-        return new self(
-            $config['host'],
-            $config['port'],
-            $config['auth'],
-            $config['database']
-        );
     }
 }
