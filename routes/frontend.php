@@ -2,11 +2,11 @@
 /**
  * 前台路由
  */
-use App\Controller\Frontend\IndexController;
+use App\Controller\Frontend\Index;
 use App\Controller\Frontend\ExceptionHandler;
 
 $routes = [
-    ["GET", "/", [IndexController::class, "index"]]
+    ["GET", "/", [Index::class, "index"]]
 ];
 
 return [
