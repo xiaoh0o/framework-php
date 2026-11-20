@@ -20,7 +20,7 @@ class Queue implements QueueInterface
             $driver->setChannel($this->channel);
             $this->driver = $driver;
         } else {
-            throw new Exception("Not found driver!");
+            throw new Exception("Not found queue driver!");
         }
     }
 
