@@ -82,10 +82,19 @@ class Authorization
 
     public static function instance(string $client_id = "")
     {
-        $configs = Configure::get("authorization");
-        $secret = $configs[$client_id] ?? "";
-        if (!isset($configs[$client_id]) || empty($secret)) {
-            throw new HttpException("Authorization failed", HttpException::UNAUTHENTICATED);
+        $config = Configure::get("authorization");
+
+        if ($client_id == "") {
+            $client_id = $config['keys']['default'] ?? "";
+        }
+
+        if (!isset($config["values"][$client_id])) {
+            throw new HttpException("Not found authorization [client_id]", HttpException::UNAUTHENTICATED);
+        }
+
+        $secret = $config["values"][$client_id] ?? "";
+        if (empty($secret)) {
+            throw new HttpException("Not found authorization [client_id]", HttpException::UNAUTHENTICATED);
         }
 
         return new self($client_id, $secret);
