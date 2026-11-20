@@ -2,7 +2,7 @@
 namespace App\Core;
 
 /**
- * 认证
+ * 签名认证
 */
 class Authorization
 {
