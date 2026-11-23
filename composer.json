@@ -10,7 +10,7 @@
     },
     "autoload": {
         "psr-4": {
-            "ZGFPHP\\": "src/"
+            "App\\": "app/"
         }
     }
 }
