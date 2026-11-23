@@ -9,9 +9,9 @@ return [
         "default" => [
             'driver'   => 'mysql',
             'hostname' => '127.0.0.1',
-            'username' => 'fsweb',
-            'password' => '',
-            'database' => 'fsmall_db',
+            'username' => 'root',
+            'password' => 'abc123',
+            'database' => '',
         ],
     ],
 ];
