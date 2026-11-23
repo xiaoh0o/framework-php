@@ -6,6 +6,8 @@ use App\Core\Container;
 
 // 自动加载
 require(ROOT_PATH. '/vendor/autoload.php');
+
+// 启动准备
 require(ROOT_PATH. '/bootstrap/ready.php');
 
 $app = new Container();
