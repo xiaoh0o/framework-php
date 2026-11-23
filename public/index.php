@@ -1,3 +1,3 @@
 <?php
 // 加载引导
-require("../bootstrap.php");
+require("../app.php");
