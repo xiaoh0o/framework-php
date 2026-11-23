@@ -1,5 +1,8 @@
 <?php
 // 数据库连接配置
+/**
+ * 配置调用文件：App\Core\Database\Database
+*/
 return [
     "default" => "default",
     "drivers" => [
